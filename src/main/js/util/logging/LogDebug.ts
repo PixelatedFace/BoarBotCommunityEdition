@@ -185,7 +185,8 @@ export class LogDebug {
      * @private
      */
     private static writeToLogFile(completeString: string, config: BotConfig): void {
-        if (!BoarBotApp.getBot().getConfig().logChannel) return;
+        const logChannel = BoarBotApp.getBot().getConfig().logChannel;
+        if (!logChannel || logChannel === '') return;
 
         const curTime = Date.now();
         const curFolderName = new Date(curTime).toLocaleDateString().replaceAll('/','-');
@@ -209,8 +210,7 @@ export class LogDebug {
         }
 
         fs.appendFileSync(
-            config.pathConfig.logsFolder + curFolderName + '/' + BoarBotApp.getBot().getClient().readyTimestamp +
-                '.log',
+            config.pathConfig.logsFolder + curFolderName + '/' + BoarBotApp.getBot().getStartTime() + '.log',
             completeString.replace(
                 /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, ''
             ) + '\n'

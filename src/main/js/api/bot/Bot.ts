@@ -14,6 +14,7 @@ import {Subcommand} from '../commands/Subcommand';
 export interface Bot {
     buildClient(): void;
     getClient(): Client;
+    getStartTime(): number;
     loadConfig(firstLoad: boolean): void;
     getConfig(): BotConfig;
     getConfigHash(): string;

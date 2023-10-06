@@ -28,12 +28,12 @@ export class BoarBotApp {
         process.title = 'BoarBot - Process';
 
         process.on('uncaughtException', async (e) => {
-            LogDebug.handleError(e);
+            LogDebug.handleError(e, undefined, false);
             process.exit();
         });
 
         process.on('unhandledRejection', async (e) => {
-            LogDebug.handleError(e);
+            LogDebug.handleError(e, undefined, false);
             process.exit();
         });
 
@@ -199,5 +199,5 @@ export class BoarBotApp {
 try {
     BoarBotApp.main();
 } catch (err: unknown) {
-    LogDebug.handleError(err);
+    LogDebug.handleError(err, undefined, false);
 }
