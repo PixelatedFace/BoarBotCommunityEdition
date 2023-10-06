@@ -538,6 +538,7 @@ export class CollectionImageGenerator {
         );
 
         if (powerupItemsData.miracle.numActive as number > 0) {
+            multiplier++;
             for (let i=0; i<(powerupItemsData.miracle.numActive as number); i++) {
                 multiplier += Math.min(
                     Math.ceil(multiplier * 0.1), this.config.numberConfig.miracleIncreaseMax

@@ -621,7 +621,7 @@ export default class CollectionSubcommand implements Subcommand {
 
             const miraclesActivated = this.boarUser.itemCollection.powerups.miracle.numTotal +
                 (this.boarUser.itemCollection.powerups.miracle.numActive as number);
-            let multiplier = this.boarUser.stats.general.multiplier;
+            let multiplier = this.boarUser.stats.general.multiplier + 1;
 
             // Gets blessing value after using miracle charms
             for (let i=0; i<miraclesActivated; i++) {

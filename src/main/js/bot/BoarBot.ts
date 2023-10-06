@@ -39,6 +39,7 @@ import {GuildData} from './data/global/GuildData';
  */
 export class BoarBot implements Bot {
 	private client = new Client({ intents:[] });
+	private startTime = Date.now();
 	private configHandler = new ConfigHandler();
 	private commandHandler = new CommandHandler();
 	private eventHandler = new EventHandler();
@@ -86,6 +87,13 @@ export class BoarBot implements Bot {
 	 */
 	public getClient(): Client {
 		return this.client;
+	}
+
+	/**
+	 * Returns when the bot came online
+	 */
+	public getStartTime(): number {
+		return this.startTime;
 	}
 
 	/**

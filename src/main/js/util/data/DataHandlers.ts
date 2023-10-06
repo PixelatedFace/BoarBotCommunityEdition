@@ -351,7 +351,7 @@ export class DataHandlers {
                 delete boardsData.giftsUsed.userData[userID];
             }
 
-            let multiplier = boarUser.stats.general.multiplier;
+            let multiplier = boarUser.stats.general.multiplier + 1;
             for (let i=0; i<(boarUser.itemCollection.powerups.miracle.numActive as number); i++) {
                 multiplier += Math.min(Math.ceil(multiplier * 0.1), config.numberConfig.miracleIncreaseMax);
             }
