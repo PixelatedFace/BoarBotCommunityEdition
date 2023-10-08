@@ -132,6 +132,8 @@ export default class DailySubcommand implements Subcommand {
                     boarUser.itemCollection.powerups.miracle.numActive = 0;
                 }
 
+                boarUser.stats.general.highestMulti = Math.max(userMultiplier-1, boarUser.stats.general.highestMulti);
+
                 boarUser.stats.general.boarStreak++;
                 boarUser.stats.general.lastDaily = Date.now();
                 boarUser.stats.general.numDailies++;

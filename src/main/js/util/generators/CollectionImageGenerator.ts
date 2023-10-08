@@ -544,6 +544,7 @@ export class CollectionImageGenerator {
                     Math.ceil(multiplier * 0.1), this.config.numberConfig.miracleIncreaseMax
                 );
             }
+            multiplier--;
 
             await CanvasUtils.drawText(
                 ctx,

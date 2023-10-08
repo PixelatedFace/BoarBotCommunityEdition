@@ -41,7 +41,7 @@ export class QuestsImageGenerator {
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'June', 'July', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
 
         const startDay = new Date(questData.questsStartTimestamp);
-        const endDay = new Date(questData.questsStartTimestamp + nums.oneDay * 7);
+        const endDay = new Date(questData.questsStartTimestamp + nums.oneDay * 6);
 
         const startDayStr = months[startDay.getUTCMonth()] + ' ' + startDay.getUTCDate();
         const endDayStr = months[endDay.getUTCMonth()] + ' ' + endDay.getUTCDate();
