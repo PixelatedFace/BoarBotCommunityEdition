@@ -394,18 +394,23 @@ export class MarketImageGenerator {
             }
         }
 
-        let rarityColor = colorConfig.font;
+        let nameColor = colorConfig.font;
+        let claimColor = colorConfig.font;
         let isSpecial = false;
         const isSell = page >= this.userBuyOrders.length;
 
-        if (!claimText.includes(strConfig.emptySelect) && orderInfo.type === 'boars' && !isSell) {
+        if (orderInfo.type === 'boars') {
             const rarity = BoarUtils.findRarity(orderInfo.id, this.config);
-            rarityColor = colorConfig['rarity' + rarity[0]];
+            nameColor = colorConfig['rarity' + rarity[0]];
             isSpecial = rarity[1].name === 'Special' && rarity[0] !== 0;
-        } else if (!claimText.includes(strConfig.emptySelect) && orderInfo.type === 'powerup' && !isSell) {
-            rarityColor = colorConfig.powerup;
-        } else if (claimText.includes('$')) {
-            rarityColor = colorConfig.bucks;
+        } else if (orderInfo.type === 'powerups') {
+            nameColor = colorConfig.powerup;
+        }
+
+        if (claimText.includes('$')) {
+            claimColor = colorConfig.bucks;
+        } else if (!claimText.includes(strConfig.emptySelect)) {
+            claimColor = nameColor;
         }
 
         const underlay = pathConfig.otherAssets + pathConfig.marketOrdersUnderlay;
@@ -436,10 +441,10 @@ export class MarketImageGenerator {
             true,
             [
                 this.config.itemConfigs[orderInfo.type][orderInfo.id].name + (isSpecial
-                ? ' #' + orderInfo.data.editions[0]
-                : '')
+                    ? ' #' + orderInfo.data.editions[0]
+                    : '')
             ],
-            [rarityColor]
+            [nameColor]
         );
 
         await CanvasUtils.drawText(
@@ -487,7 +492,7 @@ export class MarketImageGenerator {
             ctx, strConfig.marketOrdClaimLabel, nums.marketOrdClaimLabelPos, mediumFont, 'center', colorConfig.font
         );
         await CanvasUtils.drawText(
-            ctx, claimText, nums.marketOrdClaimPos, smallMediumFont, 'center', rarityColor, nums.marketOrdClaimWidth
+            ctx, claimText, nums.marketOrdClaimPos, smallMediumFont, 'center', claimColor, nums.marketOrdClaimWidth
         );
 
         return new AttachmentBuilder(canvas.toBuffer('image/png'), { name: `${strConfig.defaultImageName}.png` });

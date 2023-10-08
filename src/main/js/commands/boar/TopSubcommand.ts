@@ -118,7 +118,7 @@ export default class TopSubcommand implements Subcommand {
             this.curPage = Math.max(Math.min(pageInput-1, this.maxPage), 0);
         } else {
             this.curPage = Math.max(
-                Math.ceil(this.getUserIndex(userInput.id) / this.config.numberConfig.leaderboardNumPlayers), 0
+                Math.ceil(this.getUserIndex(userInput.id) / this.config.numberConfig.leaderboardNumPlayers) - 1, 0
             );
         }
 
@@ -492,7 +492,7 @@ export default class TopSubcommand implements Subcommand {
      * @private
      */
     private getUserIndex(idInput: string): number {
-        let i = 0;
+        let i = 1;
 
         for (const [id] of this.curBoardData) {
             if (id === idInput) return i;

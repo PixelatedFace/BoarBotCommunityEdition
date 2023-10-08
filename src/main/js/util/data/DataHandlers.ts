@@ -355,6 +355,7 @@ export class DataHandlers {
             for (let i=0; i<(boarUser.itemCollection.powerups.miracle.numActive as number); i++) {
                 multiplier += Math.min(Math.ceil(multiplier * 0.1), config.numberConfig.miracleIncreaseMax);
             }
+            multiplier--;
 
             if (multiplier > 0) {
                 boardsData.multiplier.userData[userID] = [username, multiplier];
@@ -432,8 +433,13 @@ export class DataHandlers {
         const data = this.getGlobalData(GlobalFile.Quest) as QuestData;
         const questIDs = Object.keys(config.questConfigs);
 
-        data.questsStartTimestamp = new Date().setUTCHours(0,0,0,0) -
-            new Date().getUTCDay() * config.numberConfig.oneDay;
+        const date = new Date();
+        date.setMinutes(date.getMinutes() + 1);
+
+        const curDay = date.getUTCDay();
+        const startOfDay = date.setUTCHours(0,0,0,0);
+
+        data.questsStartTimestamp = startOfDay - curDay * config.numberConfig.oneDay;
 
         for (let i=0; i<data.curQuestIDs.length; i++) {
             data.curQuestIDs[i] = questIDs.splice(Math.floor(Math.random() * questIDs.length), 1)[0];

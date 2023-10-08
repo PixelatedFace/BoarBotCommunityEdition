@@ -165,7 +165,7 @@ export default class CollectionSubcommand implements Subcommand {
         } else if (this.curView === View.Normal) {
             // Maps boar search value to its normal view page index
             const normalSearchArr = this.allBoarsSearchArr.map((val: [string, number]) => {
-                    return [val[0], Math.ceil(val[1] / this.config.numberConfig.collBoarsPerPage)] as [string, number];
+                return [val[0], Math.ceil(val[1] / this.config.numberConfig.collBoarsPerPage)] as [string, number];
             });
 
             pageVal = BoarUtils.getClosestName(pageInput.toLowerCase().replace(/\s+/g, ''), normalSearchArr);
@@ -627,6 +627,7 @@ export default class CollectionSubcommand implements Subcommand {
             for (let i=0; i<miraclesActivated; i++) {
                 multiplier += Math.min(Math.ceil(multiplier * 0.1), this.config.numberConfig.miracleIncreaseMax);
             }
+            multiplier--;
 
             // Sends confirmation message
             await Replies.handleReply(
