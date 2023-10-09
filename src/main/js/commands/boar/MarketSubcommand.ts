@@ -358,13 +358,21 @@ export default class MarketSubcommand implements Subcommand {
 
                 // User wants to claim an order
                 case marketComponents.claimOrder.customId: {
-                    await this.doClaim();
+                    await Queue.addQueue(async () => {
+                        await this.doClaim();
+                    }, 'market_claim' + this.compInter.id + this.compInter.user.id).catch((err: unknown) => {
+                        throw err;
+                    });
                     break;
                 }
 
                 // User wants to cancel an order
                 case marketComponents.cancelOrder.customId: {
-                    await this.doCancel();
+                    await Queue.addQueue(async () => {
+                        await this.doCancel();
+                    }, 'market_cancel' + this.compInter.id + this.compInter.user.id).catch((err: unknown) => {
+                        throw err;
+                    });
                     break;
                 }
 
@@ -545,6 +553,7 @@ export default class MarketSubcommand implements Subcommand {
         const itemRarity = BoarUtils.findRarity(orderInfo.id, this.config);
         const isSpecial = itemRarity[1].name === 'Special' && itemRarity[0] !== 0;
 
+        // FIX THIS QUEUE
         await Queue.addQueue(async () => {
             try {
                 const itemsData = DataHandlers.getGlobalData(DataHandlers.GlobalFile.Items) as ItemsData;
@@ -717,10 +726,11 @@ export default class MarketSubcommand implements Subcommand {
         isSell: boolean,
         isClaim: boolean
     ): Promise<number> {
-        let numToReturn = 0;
+        let numToReturn;
         let hasEnoughRoom = true;
 
         const questData = DataHandlers.getGlobalData(DataHandlers.GlobalFile.Quest) as QuestData;
+        const isOwnOrder = this.firstInter.user.id !== orderInfo.data.userID;
 
         // This is meant to change whether items or bucks are returned
         // When cancelling, you get the opposite of what you wanted: your items back
@@ -728,99 +738,92 @@ export default class MarketSubcommand implements Subcommand {
             isSell = !isSell;
         }
 
-        await Queue.addQueue(async () => {
-            try {
-                this.boarUser.refreshUserData();
+        this.boarUser.refreshUserData();
 
-                if (isClaim) {
-                    numToReturn = orderInfo.data.filledAmount - orderInfo.data.claimedAmount;
-                } else {
-                    numToReturn = orderInfo.data.num - orderInfo.data.filledAmount;
-                }
+        if (isClaim) {
+            numToReturn = orderInfo.data.filledAmount - orderInfo.data.claimedAmount;
+        } else {
+            numToReturn = orderInfo.data.num - orderInfo.data.filledAmount;
+        }
 
-                // Counts progress toward spend bucks quest if claiming a buy order
-                if (!isSell && isClaim) {
-                    const spendBucksIndex = questData.curQuestIDs.indexOf('spendBucks');
-                    this.boarUser.stats.quests.progress[spendBucksIndex] += numToReturn * orderInfo.data.price;
-                }
+        // Counts progress toward spend bucks quest if claiming a buy order
+        if (!isSell && isClaim && !isOwnOrder) {
+            const spendBucksIndex = questData.curQuestIDs.indexOf('spendBucks');
+            this.boarUser.stats.quests.progress[spendBucksIndex] += numToReturn * orderInfo.data.price;
+        }
 
-                if (!isSell && orderInfo.type === 'boars') {
-                    const collectBoarIndex = questData.curQuestIDs.indexOf('collectBoar');
+        if (!isSell && orderInfo.type === 'boars') {
+            const collectBoarIndex = questData.curQuestIDs.indexOf('collectBoar');
 
-                    // Adds boar entry to collection if it doesn't exist
-                    if (!this.boarUser.itemCollection.boars[orderInfo.id]) {
-                        this.boarUser.itemCollection.boars[orderInfo.id] = new CollectedBoar();
-                        this.boarUser.itemCollection.boars[orderInfo.id].firstObtained = Date.now();
-                    }
-
-                    // Updates last obtained boar only if claiming order
-                    if (isClaim) {
-                        this.boarUser.itemCollection.boars[orderInfo.id].lastObtained = Date.now();
-                        this.boarUser.stats.general.lastBoar = orderInfo.id;
-                    }
-
-                    const editions = this.boarUser.itemCollection.boars[orderInfo.id].editions;
-                    const editionDates = this.boarUser.itemCollection.boars[orderInfo.id].editionDates;
-
-                    this.boarUser.itemCollection.boars[orderInfo.id].editions = editions.concat(
-                        orderInfo.data.editions.slice(0, numToReturn)
-                    ).sort((a: number, b: number) => {
-                        return a - b;
-                    });
-
-                    this.boarUser.itemCollection.boars[orderInfo.id].editionDates = editionDates.concat(
-                        orderInfo.data.editionDates.slice(0, numToReturn)
-                    ).sort((a: number, b: number) => {
-                        return a - b;
-                    });
-
-                    this.boarUser.stats.general.totalBoars += numToReturn;
-                    this.boarUser.itemCollection.boars[orderInfo.id].num += numToReturn;
-
-                    const canCollectBoarQuest = collectBoarIndex >= 0 && isClaim &&
-                        Math.floor(collectBoarIndex / 2) + 1 === BoarUtils.findRarity(orderInfo.id, this.config)[0];
-
-                    // Counts progress toward collecting boar rarity quest if claiming a boar buy order
-                    if (canCollectBoarQuest) {
-                        this.boarUser.stats.quests.progress[collectBoarIndex] += numToReturn;
-                    }
-                } else if (!isSell && orderInfo.type === 'powerups') {
-                    const maxValue = orderInfo.id === 'enhancer'
-                        ? this.config.numberConfig.maxEnhancers
-                        : this.config.numberConfig.maxPowBase;
-
-                    const numPowerup = this.boarUser.itemCollection.powerups[orderInfo.id].numTotal;
-
-                    hasEnoughRoom = numPowerup + numToReturn <= maxValue;
-
-                    // Allows partial returns if claiming but not cancelling
-                    if (isClaim) {
-                        numToReturn = Math.min(numToReturn, maxValue - numPowerup);
-                    }
-
-                    // Adds powerup items to inventory if there's room
-                    if (hasEnoughRoom || isClaim) {
-                        this.boarUser.itemCollection.powerups[orderInfo.id].numTotal += numToReturn;
-                    }
-                } else if (isClaim) {
-                    const collectBucksIndex = questData.curQuestIDs.indexOf('collectBucks');
-
-                    // Counts collect bucks quest progress if claiming a sell order
-                    this.boarUser.stats.quests.progress[collectBucksIndex] += numToReturn * orderInfo.data.price;
-
-                    this.boarUser.stats.general.boarScore += numToReturn * orderInfo.data.price;
-                } else {
-                    this.boarUser.stats.general.boarScore += numToReturn * orderInfo.data.price;
-                }
-
-                await this.boarUser.orderBoars(this.compInter, this.config);
-                this.boarUser.updateUserData();
-            } catch (err: unknown) {
-                await LogDebug.handleError(err, this.compInter);
+            // Adds boar entry to collection if it doesn't exist
+            if (!this.boarUser.itemCollection.boars[orderInfo.id]) {
+                this.boarUser.itemCollection.boars[orderInfo.id] = new CollectedBoar();
+                this.boarUser.itemCollection.boars[orderInfo.id].firstObtained = Date.now();
             }
-        }, 'market_return' + this.compInter.id + this.compInter.user.id).catch((err: unknown) => {
-            throw err;
-        });
+
+            // Updates last obtained boar only if claiming order
+            if (isClaim) {
+                this.boarUser.itemCollection.boars[orderInfo.id].lastObtained = Date.now();
+                this.boarUser.stats.general.lastBoar = orderInfo.id;
+            }
+
+            const editions = this.boarUser.itemCollection.boars[orderInfo.id].editions;
+            const editionDates = this.boarUser.itemCollection.boars[orderInfo.id].editionDates;
+
+            this.boarUser.itemCollection.boars[orderInfo.id].editions = editions.concat(
+                orderInfo.data.editions.slice(0, numToReturn)
+            ).sort((a: number, b: number) => {
+                return a - b;
+            });
+
+            this.boarUser.itemCollection.boars[orderInfo.id].editionDates = editionDates.concat(
+                orderInfo.data.editionDates.slice(0, numToReturn)
+            ).sort((a: number, b: number) => {
+                return a - b;
+            });
+
+            this.boarUser.stats.general.totalBoars += numToReturn;
+            this.boarUser.itemCollection.boars[orderInfo.id].num += numToReturn;
+
+            const canCollectBoarQuest = collectBoarIndex >= 0 && isClaim && !isOwnOrder &&
+                Math.floor(collectBoarIndex / 2) + 1 === BoarUtils.findRarity(orderInfo.id, this.config)[0];
+
+            // Counts progress toward collecting boar rarity quest if claiming a boar buy order
+            if (canCollectBoarQuest) {
+                this.boarUser.stats.quests.progress[collectBoarIndex] += numToReturn;
+            }
+        } else if (!isSell && orderInfo.type === 'powerups') {
+            const maxValue = orderInfo.id === 'enhancer'
+                ? this.config.numberConfig.maxEnhancers
+                : this.config.numberConfig.maxPowBase;
+
+            const numPowerup = this.boarUser.itemCollection.powerups[orderInfo.id].numTotal;
+
+            hasEnoughRoom = numPowerup + numToReturn <= maxValue;
+
+            // Allows partial returns if claiming but not cancelling
+            if (isClaim) {
+                numToReturn = Math.min(numToReturn, maxValue - numPowerup);
+            }
+
+            // Adds powerup items to inventory if there's room
+            if (hasEnoughRoom || isClaim) {
+                this.boarUser.itemCollection.powerups[orderInfo.id].numTotal += numToReturn;
+            }
+        } else if (isClaim) {
+            // Counts collect bucks quest progress if claiming a sell order
+            if (!isOwnOrder) {
+                const collectBucksIndex = questData.curQuestIDs.indexOf('collectBucks');
+                this.boarUser.stats.quests.progress[collectBucksIndex] += numToReturn * orderInfo.data.price;
+            }
+
+            this.boarUser.stats.general.boarScore += numToReturn * orderInfo.data.price;
+        } else {
+            this.boarUser.stats.general.boarScore += numToReturn * orderInfo.data.price;
+        }
+
+        await this.boarUser.orderBoars(this.compInter, this.config);
+        this.boarUser.updateUserData();
 
         return !hasEnoughRoom && !isClaim
             ? 0
@@ -1084,6 +1087,8 @@ export default class MarketSubcommand implements Subcommand {
                         throw err;
                     });
 
+                    const isOwnOrder = userIDs.includes(this.firstInter.user.id);
+
                     if (!failedBuy && itemData.type === 'boars') {
                         const collectBoarIndex = questData.curQuestIDs.indexOf('collectBoar');
 
@@ -1145,7 +1150,7 @@ export default class MarketSubcommand implements Subcommand {
                             this.curEdition = 0;
                         }
 
-                        const canCollectBoarQuest = collectBoarIndex >= 0 &&
+                        const canCollectBoarQuest = collectBoarIndex >= 0 && !isOwnOrder &&
                             Math.floor(collectBoarIndex / 2) + 1 === BoarUtils.findRarity(itemData.id, this.config)[0];
 
                         // Counts progress toward collect boar quest
@@ -1157,8 +1162,6 @@ export default class MarketSubcommand implements Subcommand {
                     }
 
                     if (!failedBuy) {
-                        const spendBucksIndex = questData.curQuestIDs.indexOf('spendBucks');
-
                         LogDebug.log(
                             `Bought ${this.modalData[0]} of ${itemData.id} for ${prices.trim()} from ${userIDs.trim()}`,
                             this.config,
@@ -1169,7 +1172,10 @@ export default class MarketSubcommand implements Subcommand {
                         this.boarUser.stats.general.boarScore -= this.modalData[1];
 
                         // Counts progress toward spend bucks quest when buying
-                        this.boarUser.stats.quests.progress[spendBucksIndex] += this.modalData[1];
+                        if (!isOwnOrder) {
+                            const spendBucksIndex = questData.curQuestIDs.indexOf('spendBucks');
+                            this.boarUser.stats.quests.progress[spendBucksIndex] += this.modalData[1];
+                        }
 
                         await this.boarUser.orderBoars(this.compInter, this.config);
                         this.boarUser.updateUserData();
@@ -1401,9 +1407,9 @@ export default class MarketSubcommand implements Subcommand {
                         throw err;
                     });
 
-                    if (!failedSale) {
-                        const collectBucksIndex = questData.curQuestIDs.indexOf('collectBucks');
+                    const isOwnOrder = userIDs.includes(this.firstInter.user.id);
 
+                    if (!failedSale) {
                         LogDebug.log(
                             `Sold ${this.modalData[0]} of ${itemData.id} for ${prices} to ${userIDs}`,
                             this.config,
@@ -1418,7 +1424,11 @@ export default class MarketSubcommand implements Subcommand {
                             this.boarUser.itemCollection.powerups[itemData.id].numTotal -= this.modalData[0];
                         }
 
-                        this.boarUser.stats.quests.progress[collectBucksIndex] += this.modalData[1];
+                        if (!isOwnOrder) {
+                            const collectBucksIndex = questData.curQuestIDs.indexOf('collectBucks');
+                            this.boarUser.stats.quests.progress[collectBucksIndex] += this.modalData[1];
+                        }
+
                         this.boarUser.stats.general.boarScore += this.modalData[1];
                         await this.boarUser.orderBoars(this.compInter, this.config);
                         this.boarUser.updateUserData();
